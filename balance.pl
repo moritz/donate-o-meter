@@ -49,7 +49,7 @@ class Balance {
             );
         }
         $sth.finish;
-        return 0;
+        return $balance;
     }
 
     method !recurring(:$start! is copy, :$amount!, :$interval!, :$unit!, :$end is copy){
@@ -65,7 +65,7 @@ class Balance {
 
 
 sub MAIN($project = 'irclog') {
-    say Balance.new(:project(project-id($project))).test-recurring;
+    say Balance.new(:project(project-id($project))).balance;
 
 }
 
