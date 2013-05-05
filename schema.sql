@@ -41,3 +41,4 @@ CREATE TABLE balance (
     balance_date    TEXT NOT NULL DEFAULT(date('now')),
     amount          INTEGER NOT NULL
 );
+
