@@ -24,10 +24,24 @@ sub project-id(Cool $name) {
         or die "No such project '$name'";
 }
 
-sub balance(Int:D :$project!, Date:D :$from = Date.new(select-one('SELECT start_date FROM project where id = ?', $project)), Date:D :$to = Date.today) {
-    return one-time-balance(:$project, :$from, :$to)
-          + recurring-balance(:$project, :$from, :$to);
+sub balance(Int:D :$project!, Date:D :$to = Date.today) {
+    my $from = Date.new(select-one('SELECT start_date FROM project where id = ?', $project));
 
+    my sub do-balance($f = $from) {
+        one-time-balance(:$project, :from($f), :$to)
+          + recurring-balance(:$project, :from($f), :$to);
+    }
+    my ($old, $date) =  select-one('SELECT amount, balance_date FROM balance WHERE project = ? AND balance_date <= ? ORDER BY balance_date DESC LIMIT 1', $project, $to);
+    my $balance = 0;
+    if $date {
+        return $old if $date eq $to;
+        $balance = $old + do-balance(Date.new($date));
+    }
+    else {
+        $balance = do-balance();
+    }
+    $dbh.do('INSERT INTO balance (project, balance_date, amount) VALUES (?, ?, ?)', $project, $to.Str, $balance);
+    return $balance;
 }
 
 sub one-time-balance(Int:D :$project!, Date:D :$from!, Date:D :$to!) {
@@ -51,7 +65,7 @@ sub recurring-balance(Int:D :$project!, Date:D :$from!, Date:D :$to!) {
 
 sub MAIN($project = 'irclog') {
     say balance(:project(project-id($project)));
-
+    say balance(:project(project-id($project)), :to(Date.today + 370));
 }
 
 # vim: ft=perl6
