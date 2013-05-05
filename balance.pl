@@ -24,48 +24,33 @@ sub project-id(Cool $name) {
         or die "No such project '$name'";
 }
 
-class Balance {
-    has Int:D  $.project = die "Missing project ID";
-    has Date:D $.from    = Date.new(select-one('SELECT start_date FROM project where id = ?', self.project));
-    has Date:D $.to      = Date.today;
+sub balance(Int:D :$project!, Date:D :$from = Date.new(select-one('SELECT start_date FROM project where id = ?', $project)), Date:D :$to = Date.today) {
+    return one-time-balance(:$project, :$from, :$to)
+          + recurring-balance(:$project, :$from, :$to);
 
-    method balance() {
-        return self.one-time-balance + self.recurring-balance;
-    }
-    method one-time-balance() {
-        select-one('SELECT SUM(amount) FROM one_time_transaction WHERE project = ? AND billing_date >= ? AND billing_date <= ?', $.project, $.from, $.to) // 0;
-    }
-    method recurring-balance() {
-        my $balance = 0;
-        my $sth = $dbh.prepare('SELECT start_date, end_date, amount, interval_num, interval_unit FROM recurring_transaction WHERE project = ? AND start_date <= ? AND (end_date IS NULL OR end_date <= ?)');
-        $sth.execute($.project, $.to.Str, $.from.Str);
-        while (my %h := $sth.fetchrow_hashref) {
-            $balance += self!recurring(
-                :start(Date.new(%h<start_date>))
-                :end(%h<end_date> ?? Date.new(%h<end_date>) !! Date),
-                :amount(%h<amount>),
-                :interval(%h<interval_num>),
-                :unit(%unit{%h<interval_unit>}),
-            );
-        }
-        $sth.finish;
-        return $balance;
-    }
-
-    method !recurring(:$start! is copy, :$amount!, :$interval!, :$unit!, :$end is copy){
-        $end   min= $.to;
-        $start max= $.from;
-        return $amount * elems($start, *.delta($interval, $unit) ...^ *>$end);
-    }
-
-    method test-recurring() {
-        self!recurring(:start(Date.new(2013, 1, 3)), :amount(3), :interval(1), :unit(month));
-    }
 }
 
+sub one-time-balance(Int:D :$project!, Date:D :$from!, Date:D :$to!) {
+    select-one('SELECT SUM(amount) FROM one_time_transaction WHERE project = ? AND billing_date >= ? AND billing_date <= ?', $project, $from, $to) // 0;
+}
+
+sub recurring-balance(Int:D :$project!, Date:D :$from!, Date:D :$to!) {
+    my $balance = 0;
+    my $sth = $dbh.prepare('SELECT start_date, end_date, amount, interval_num, interval_unit FROM recurring_transaction WHERE project = ? AND start_date <= ? AND (end_date IS NULL OR end_date <= ?)');
+    $sth.execute($project, $to.Str, $from.Str);
+    while (my %h := $sth.fetchrow_hashref) {
+        my $end   = defined(%h<end_date>) && Date.new(%h<end_date>) min $to;
+        my $start = Date.new(%h<start_date>) max $from;
+        my $unit  = %unit{%h<interval_unit>}
+                    // die "Don't understand interval unit '%h<interval_unit>'!";
+        $balance += %h<amount> * elems($start, *.delta(+%h<interval_num>, $unit) ...^ *>$end);
+    }
+    $sth.finish;
+    return $balance;
+}
 
 sub MAIN($project = 'irclog') {
-    say Balance.new(:project(project-id($project))).balance;
+    say balance(:project(project-id($project)));
 
 }
 

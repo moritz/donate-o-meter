@@ -4,6 +4,7 @@
 
 DROP TABLE IF EXISTS one_time_transaction;
 DROP TABLE IF EXISTS recurring_transaction;
+DROP TABLE IF EXISTS balance;
 DROP TABLE IF EXISTS project;
 CREATE TABLE project (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,10 +36,11 @@ CREATE TABLE recurring_transaction (
     -- TODO: attribution
 );
 
+-- balances are strictly caches, and can always be deleted, and then
+-- re-calcuated from transactions.
 CREATE TABLE balance (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     project         INTEGER NOT NULL REFERENCES project (id),
     balance_date    TEXT NOT NULL DEFAULT(date('now')),
     amount          INTEGER NOT NULL
 );
-
