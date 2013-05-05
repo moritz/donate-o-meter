@@ -63,9 +63,15 @@ sub recurring-balance(Int:D :$project!, Date:D :$from!, Date:D :$to!) {
     return $balance;
 }
 
-sub MAIN($project = 'irclog') {
-    say balance(:project(project-id($project)));
-    say balance(:project(project-id($project)), :to(Date.today + 370));
+sub recurring-expectation(Int:D :$project!, Date:D :$from = Date.today) {
+    my $to = $from.delta(1, year);
+    return recurring-balance(:$project, :$from, :$to) / 12;
+}
+
+sub MAIN($project-name = 'irclog') {
+    my $project = project-id($project-name);
+    say balance(:$project);
+    say recurring-expectation(:$project);
 }
 
 # vim: ft=perl6
