@@ -54,10 +54,10 @@ sub recurring-balance(Int:D :$project!, Date:D :$from!, Date:D :$to!) {
     $sth.execute($project, $to.Str, $from.Str);
     while (my %h := $sth.fetchrow_hashref) {
         my $end   = defined(%h<end_date>) && Date.new(%h<end_date>) min $to;
-        my $start = Date.new(%h<start_date>) max $from;
+        my $start = Date.new(%h<start_date>);
         my $unit  = %unit{%h<interval_unit>}
                     // die "Don't understand interval unit '%h<interval_unit>'!";
-        $balance += %h<amount> * elems($start, *.delta(+%h<interval_num>, $unit) ...^ *>$end);
+        $balance += %h<amount> * ($start, *.delta(+%h<interval_num>, $unit) ...^ *>$end).grep(* >= $from).elems;
     }
     $sth.finish;
     return $balance;
